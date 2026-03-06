@@ -32,6 +32,7 @@ log-galinha/
 ├── src/
 │   ├── models/           # [M] node-postgres SQL queries and data logic
 │   ├── app/              # [V] React Components, Pages, and pure .css files
+|   |   ├── hooks/        # React Hooks files      
 │   ├── controllers/      # [C] API Route Handlers routing data to views
 │   ├── lib/              # DB connection pooling (db.ts) and shared helpers
 │   └── types/            # Global TypeScript interfaces
