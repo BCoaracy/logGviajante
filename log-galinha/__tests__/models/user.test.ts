@@ -1,5 +1,5 @@
 import { pool } from '../../src/lib/db';
-import { createUser, getUserById, getUserByEmail, updateUser, deleteUser, loginUser } from '../../src/models/user';
+import { createUser, getUserById, getUserByEmail, updateUser, deleteUser, loginUser, searchUsers } from '../../src/models/user';
 import { User } from '../../src/types/user';
 
 describe('User CRUD Operations', () => {
@@ -184,6 +184,73 @@ describe('User CRUD Operations', () => {
         it('should return null for non-existent email', async () => {
             const token = await loginUser('nonexistent@example.com', 'anypassword');
             expect(token).toBeNull();
+        });
+    });
+
+    describe('searchUsers', () => {
+        const user1: Omit<User, 'id'> = { name: 'Alice Smith', email: 'alice@example.com', nickname: 'ali_s', password: 'passA' };
+        const user2: Omit<User, 'id'> = { name: 'Bob Johnson', email: 'bob@example.com', nickname: 'b_j', password: 'passB' };
+        const user3: Omit<User, 'id'> = { name: 'Charlie Brown', email: 'charlie@test.com', nickname: 'charles', password: 'passC' };
+        const user4: Omit<User, 'id'> = { name: 'David Smith', email: 'david@domain.com', nickname: 'dsmith', password: 'passD' };
+
+        beforeEach(async () => {
+            await createUser(user1);
+            await createUser(user2);
+            await createUser(user3);
+            await createUser(user4);
+        });
+
+        it('should find users by partial name match', async () => {
+            const results = await searchUsers('smith');
+            expect(results).toHaveLength(2);
+            expect(results.some(u => u.email === user1.email)).toBe(true);
+            expect(results.some(u => u.email === user4.email)).toBe(true);
+        });
+
+        it('should find users by partial email match', async () => {
+            const results = await searchUsers('example.com');
+            expect(results).toHaveLength(2);
+            expect(results.some(u => u.email === user1.email)).toBe(true);
+            expect(results.some(u => u.email === user2.email)).toBe(true);
+        });
+
+        it('should find users by partial nickname match', async () => {
+            const results = await searchUsers('ali');
+            expect(results).toHaveLength(1);
+            expect(results[0].email).toBe(user1.email);
+        });
+
+        it('should return an empty array if no users match the search term', async () => {
+            const results = await searchUsers('nonexistent');
+            expect(results).toHaveLength(0);
+        });
+
+        it('should be case-insensitive', async () => {
+            const results = await searchUsers('alice');
+            expect(results).toHaveLength(1);
+            expect(results[0].email).toBe(user1.email);
+
+            const results2 = await searchUsers('BOB');
+            expect(results2).toHaveLength(1);
+            expect(results2[0].email).toBe(user2.email);
+        });
+
+        it('should return all relevant user fields except password', async () => {
+            const results = await searchUsers('alice');
+            expect(results).toHaveLength(1);
+            const foundUser = results[0];
+            expect(foundUser).toHaveProperty('id');
+            expect(foundUser.name).toBe(user1.name);
+            expect(foundUser.email).toBe(user1.email);
+            expect(foundUser.nickname).toBe(user1.nickname);
+            expect(foundUser).not.toHaveProperty('password'); // Password should not be returned
+        });
+
+        it('should return a user if term matches across multiple fields', async () => {
+            // "test" matches charlie@test.com and Charlie Brown
+            const results = await searchUsers('test');
+            expect(results).toHaveLength(1);
+            expect(results[0].email).toBe(user3.email);
         });
     });
 });

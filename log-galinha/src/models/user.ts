@@ -79,3 +79,17 @@ export async function loginUser(email: string, password: string): Promise<string
     const token = `dummy-jwt-token-for-user-${user.id}`;
     return token;
 }
+
+export async function searchUsers(searchTerm: string): Promise<Omit<User, 'password'>[]> {
+    const query = `
+        SELECT id, name, email, nickname
+        FROM users
+        WHERE
+            name ILIKE $1 OR
+            email ILIKE $1 OR
+            nickname ILIKE $1;
+    `;
+    const values = [`%${searchTerm}%`];
+    const { rows } = await pool.query<Omit<User, 'password'>>(query, values);
+    return rows;
+}
