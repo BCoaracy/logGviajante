@@ -60,3 +60,22 @@ export async function deleteUser(id: number): Promise<boolean> {
     const { rows } = await pool.query(query, [id]);
     return rows.length > 0;
 }
+
+export async function loginUser(email: string, password: string): Promise<string | null> {
+    const user = await getUserByEmail(email);
+
+    if (!user) {
+        return null; // User not found
+    }
+
+    // In a real application, you would compare hashed passwords (e.g., using bcrypt)
+    // For now, a direct comparison is used for simplicity.
+    if (user.password !== password) {
+        return null; // Incorrect password
+    }
+
+    // In a real application, a JWT (JSON Web Token) would be generated here.
+    // For demonstration, a simple token string is returned.
+    const token = `dummy-jwt-token-for-user-${user.id}`;
+    return token;
+}

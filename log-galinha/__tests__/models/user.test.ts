@@ -1,5 +1,5 @@
 import { pool } from '../../src/lib/db';
-import { createUser, getUserById, getUserByEmail, updateUser, deleteUser } from '../../src/models/user';
+import { createUser, getUserById, getUserByEmail, updateUser, deleteUser, loginUser } from '../../src/models/user';
 import { User } from '../../src/types/user';
 
 describe('User CRUD Operations', () => {
@@ -154,6 +154,36 @@ describe('User CRUD Operations', () => {
         it('should return false if the user to delete does not exist', async () => {
             const isDeleted = await deleteUser(99999);
             expect(isDeleted).toBe(false);
+        });
+    });
+
+    describe('loginUser', () => {
+        const loginTestUser: Omit<User, 'id'> = {
+            name: 'Login User',
+            email: 'login@example.com',
+            nickname: 'loginuser',
+            password: 'loginPassword123',
+        };
+
+        it('should authenticate a user with correct credentials and return a token', async () => {
+            await createUser(loginTestUser);
+            const token = await loginUser(loginTestUser.email, loginTestUser.password);
+
+            expect(token).toBeDefined();
+            expect(typeof token).toBe('string');
+            expect(token!.length).toBeGreaterThan(0);
+        });
+
+        it('should return null for incorrect password', async () => {
+            await createUser(loginTestUser);
+            const token = await loginUser(loginTestUser.email, 'wrongPassword');
+
+            expect(token).toBeNull();
+        });
+
+        it('should return null for non-existent email', async () => {
+            const token = await loginUser('nonexistent@example.com', 'anypassword');
+            expect(token).toBeNull();
         });
     });
 });
