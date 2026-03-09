@@ -1,5 +1,4 @@
 import { pool } from '../../src/lib/db';
-import { pool } from '../../src/lib/db';
 import { createUser, getUserById, getUserByEmail, updateUser, deleteUser } from '../../src/models/user';
 import { User } from '../../src/types/user';
 
