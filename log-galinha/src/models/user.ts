@@ -93,3 +93,50 @@ export async function searchUsers(searchTerm: string): Promise<Omit<User, 'passw
     const { rows } = await pool.query<Omit<User, 'password'>>(query, values);
     return rows;
 }
+
+export async function followUser(followerId: number, followingId: number): Promise<boolean> {
+    if (followerId === followingId) {
+        throw new Error("A user cannot follow themselves.");
+    }
+
+    const query = `
+        INSERT INTO user_follows (follower_id, following_id)
+        VALUES ($1, $2)
+        ON CONFLICT (follower_id, following_id) DO NOTHING
+        RETURNING follower_id;
+    `;
+    const { rows } = await pool.query(query, [followerId, followingId]);
+    return rows.length > 0;
+}
+
+export async function unfollowUser(followerId: number, followingId: number): Promise<boolean> {
+    const query = `
+        DELETE FROM user_follows
+        WHERE follower_id = $1 AND following_id = $2
+        RETURNING follower_id;
+    `;
+    const { rows } = await pool.query(query, [followerId, followingId]);
+    return rows.length > 0;
+}
+
+export async function getFollowing(userId: number): Promise<Omit<User, 'password'>[]> {
+    const query = `
+        SELECT u.id, u.name, u.email, u.nickname
+        FROM users u
+        JOIN user_follows uf ON u.id = uf.following_id
+        WHERE uf.follower_id = $1;
+    `;
+    const { rows } = await pool.query<Omit<User, 'password'>>(query, [userId]);
+    return rows;
+}
+
+export async function getFollowers(userId: number): Promise<Omit<User, 'password'>[]> {
+    const query = `
+        SELECT u.id, u.name, u.email, u.nickname
+        FROM users u
+        JOIN user_follows uf ON u.id = uf.follower_id
+        WHERE uf.following_id = $1;
+    `;
+    const { rows } = await pool.query<Omit<User, 'password'>>(query, [userId]);
+    return rows;
+}

@@ -1,9 +1,9 @@
 import { pool } from '../../src/lib/db';
-import { createUser, getUserById, getUserByEmail, updateUser, deleteUser, loginUser, searchUsers } from '../../src/models/user';
+import { createUser, getUserById, getUserByEmail, updateUser, deleteUser, loginUser, searchUsers, followUser, unfollowUser, getFollowing, getFollowers } from '../../src/models/user';
 import { User } from '../../src/types/user';
 
-describe('User CRUD Operations', () => {
-    // A dummy user object for testing
+describe('User Model Operations', () => { // Changed description to be more general
+    // Dummy user objects for testing
     const testUser: Omit<User, 'id'> = {
         name: 'Test User',
         email: 'test@example.com',
@@ -18,10 +18,8 @@ describe('User CRUD Operations', () => {
         password: 'securepassword',
     };
 
-    // Ensure the users table exists before running tests
+    // Ensure necessary tables exist before running tests
     beforeAll(async () => {
-        // In a real application, database migrations would handle this.
-        // For testing purposes, we create the table if it doesn't exist.
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -30,18 +28,26 @@ describe('User CRUD Operations', () => {
                 nickname VARCHAR(255) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS user_follows (
+                follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                following_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                PRIMARY KEY (follower_id, following_id)
+            );
         `);
     });
 
-    // Clean up the users table after each test to ensure test isolation
+    // Clean up tables after each test to ensure test isolation
     afterEach(async () => {
         await pool.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE;');
+        await pool.query('TRUNCATE TABLE user_follows RESTART IDENTITY CASCADE;');
     });
 
     // Close the database connection pool after all tests are done
     afterAll(async () => {
         await pool.end();
     });
+
+    // --- CRUD Operations Tests ---
 
     describe('createUser', () => {
         it('should create a new user and return the created user with an ID', async () => {
@@ -251,6 +257,105 @@ describe('User CRUD Operations', () => {
             const results = await searchUsers('test');
             expect(results).toHaveLength(1);
             expect(results[0].email).toBe(user3.email);
+        });
+    });
+
+    // --- User Following Operations Tests ---
+    describe('User Following Operations', () => {
+        let userA: User;
+        let userB: User;
+        let userC: User;
+
+        beforeEach(async () => {
+            userA = await createUser({ name: 'User Alpha', email: 'alpha@example.com', nickname: 'alpha', password: 'passA' });
+            userB = await createUser({ name: 'User Beta', email: 'beta@example.com', nickname: 'beta', password: 'passB' });
+            userC = await createUser({ name: 'User Gamma', email: 'gamma@example.com', nickname: 'gamma', password: 'passC' });
+        });
+
+        describe('followUser', () => {
+            it('should allow a user to follow another user', async () => {
+                const result = await followUser(userA.id!, userB.id!);
+                expect(result).toBe(true);
+
+                const following = await getFollowing(userA.id!);
+                expect(following).toHaveLength(1);
+                expect(following[0].id).toBe(userB.id);
+
+                const followers = await getFollowers(userB.id!);
+                expect(followers).toHaveLength(1);
+                expect(followers[0].id).toBe(userA.id);
+            });
+
+            it('should not allow a user to follow themselves', async () => {
+                await expect(followUser(userA.id!, userA.id!)).rejects.toThrow();
+            });
+
+            it('should not allow duplicate follows', async () => {
+                await followUser(userA.id!, userB.id!);
+                await expect(followUser(userA.id!, userB.id!)).rejects.toThrow();
+            });
+
+            it('should return false if follower or following user does not exist', async () => {
+                await expect(followUser(99999, userB.id!)).rejects.toThrow(); // Non-existent follower
+                await expect(followUser(userA.id!, 88888)).rejects.toThrow(); // Non-existent following
+            });
+        });
+
+        describe('unfollowUser', () => {
+            it('should allow a user to unfollow another user', async () => {
+                await followUser(userA.id!, userB.id!);
+                const result = await unfollowUser(userA.id!, userB.id!);
+                expect(result).toBe(true);
+
+                const following = await getFollowing(userA.id!);
+                expect(following).toHaveLength(0);
+
+                const followers = await getFollowers(userB.id!);
+                expect(followers).toHaveLength(0);
+            });
+
+            it('should return false if no follow relationship exists', async () => {
+                const result = await unfollowUser(userA.id!, userB.id!); // No prior follow
+                expect(result).toBe(false);
+            });
+        });
+
+        describe('getFollowing', () => {
+            it('should return a list of users that a given user is following', async () => {
+                await followUser(userA.id!, userB.id!);
+                await followUser(userA.id!, userC.id!);
+
+                const following = await getFollowing(userA.id!);
+                expect(following).toHaveLength(2);
+                expect(following.some(u => u.id === userB.id)).toBe(true);
+                expect(following.some(u => u.id === userC.id)).toBe(true);
+                // Ensure passwords are not returned
+                expect(following[0]).not.toHaveProperty('password');
+            });
+
+            it('should return an empty array if the user is not following anyone', async () => {
+                const following = await getFollowing(userA.id!);
+                expect(following).toHaveLength(0);
+            });
+        });
+
+        describe('getFollowers', () => {
+            it('should return a list of users who are following a given user', async () => {
+                await followUser(userA.id!, userC.id!);
+                await followUser(userB.id!, userC.id!);
+
+                const followers = await getFollowers(userC.id!);
+                expect(followers).toHaveLength(2);
+                expect(followers.some(u => u.id === userA.id)).toBe(true);
+                expect(followers.some(u => u.id === userB.id)).toBe(true);
+                // Ensure passwords are not returned
+                expect(followers[0]).not.toHaveProperty('password');
+            });
+
+            it('should return an empty array if no one is following the user', async () => {
+                const followers = await getFollowers(userA.id!);
+                expect(followers).toHaveLength(0);
+            });
         });
     });
 });
