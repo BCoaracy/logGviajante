@@ -132,4 +132,58 @@ describe('Game Model', () => {
         const retrievedGame = await getGameByExternalId(createdGame.externalId);
         expect(retrievedGame).toBeNull();
     });
+
+    it('should list games searching for the title at the external API', async () => {
+        const searchTerm = 'The Witcher';
+        const expectedGames: Omit<Game, 'id'>[] = [
+            { externalId: 'igdb-1', title: 'The Witcher 3', cover: 'https://example.com/witcher3.jpg' },
+            { externalId: 'igdb-2', title: 'The Witcher 2', cover: 'https://example.com/witcher2.jpg' },
+        ];
+
+        // Ensure the mock is set up to return the expected data
+        (searchGamesByApi as jest.Mock).mockResolvedValue(expectedGames);
+
+        const foundGames = await searchGamesByTitle(searchTerm);
+
+        expect(searchGamesByApi).toHaveBeenCalledTimes(1);
+        expect(searchGamesByApi).toHaveBeenCalledWith(searchTerm);
+        expect(foundGames).toBeInstanceOf(Array);
+        expect(foundGames).toHaveLength(2);
+        expect(foundGames[0]).toEqual(expect.objectContaining({
+            externalId: 'igdb-1',
+            title: 'The Witcher 3',
+            cover: 'https://example.com/witcher3.jpg',
+        }));
+        expect(foundGames[1]).toEqual(expect.objectContaining({
+            externalId: 'igdb-2',
+            title: 'The Witcher 2',
+            cover: 'https://example.com/witcher2.jpg',
+        }));
+    });
+
+    it('should return an empty array if no games are found by the external API', async () => {
+        const searchTerm = 'NonExistentGame';
+
+        // Ensure the mock is set up to return an empty array
+        (searchGamesByApi as jest.Mock).mockResolvedValue([]);
+
+        const foundGames = await searchGamesByTitle(searchTerm);
+
+        expect(searchGamesByApi).toHaveBeenCalledTimes(1);
+        expect(searchGamesByApi).toHaveBeenCalledWith(searchTerm);
+        expect(foundGames).toBeInstanceOf(Array);
+        expect(foundGames).toHaveLength(0);
+    });
+
+    it('should handle errors from the external API gracefully', async () => {
+        const searchTerm = 'Error Game';
+        const errorMessage = 'External API is down';
+
+        // Ensure the mock is set up to throw an error
+        (searchGamesByApi as jest.Mock).mockRejectedValue(new Error(errorMessage));
+
+        await expect(searchGamesByTitle(searchTerm)).rejects.toThrow(errorMessage);
+        expect(searchGamesByApi).toHaveBeenCalledTimes(1);
+        expect(searchGamesByApi).toHaveBeenCalledWith(searchTerm);
+    });
 });

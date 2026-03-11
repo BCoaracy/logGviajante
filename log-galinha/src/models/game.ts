@@ -92,6 +92,20 @@ export async function deleteGame(id: number): Promise<boolean> {
 }
 
 /**
+ * Searches for games by title using an external API.
+ * @param title - The title of the game to search for.
+ * @returns A promise that resolves to an array of games matching the search criteria.
+ *          These games will not have an internal database 'id' yet.
+ */
+export async function searchGamesByTitle(title: string): Promise<Omit<Game, 'id'>[]> {
+    // Placeholder for actual external API integration logic
+    // This function will eventually call an external service (e.g., IGDB)
+    // For now, it returns an empty array or dummy data.
+    console.warn(`Searching for games by title: "${title}". External API integration not yet implemented.`);
+    return [];
+}
+
+/**
  * Helper function to get game by internal ID.
  * Used internally by updateGame.
  * @param id - The internal database ID of the game.
