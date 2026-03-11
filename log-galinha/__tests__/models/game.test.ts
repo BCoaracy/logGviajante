@@ -1,16 +1,39 @@
 import { pool } from '../../src/lib/db';
-import { createGame, getGameByExternalId } from '../../src/models/game'; // Assuming createGame and getGameByExternalId exist
+import { createGame, getGameByExternalId, updateGame, deleteGame, searchGamesByTitle } from '../../src/models/game';
 import { Game } from '../../src/types/game';
 
+// Mock the external API integration for searchGamesByTitle
+// We'll create a hypothetical module for external API calls, e.g., src/lib/igdb.ts
+// and mock a function within it that `searchGamesByTitle` would use.
+jest.mock('../../src/lib/igdb', () => ({
+    searchGamesByApi: jest.fn(() => [
+        { externalId: 'igdb-1', title: 'The Witcher 3', cover: 'https://example.com/witcher3.jpg' },
+        { externalId: 'igdb-2', title: 'The Witcher 2', cover: 'https://example.com/witcher2.jpg' },
+    ]),
+}));
+
+// We need to import the mocked function to assert its calls, even if it's not directly used here
+import { searchGamesByApi } from '../../src/lib/igdb';
+
+
 describe('Game Model', () => {
+    beforeEach(() => {
+        // Clear mock calls before each test to ensure isolation
+        (searchGamesByApi as jest.Mock).mockClear();
+        // Reset the mock implementation for searchGamesByApi for each test
+        (searchGamesByApi as jest.Mock).mockImplementation(() => [
+            { externalId: 'igdb-1', title: 'The Witcher 3', cover: 'https://example.com/witcher3.jpg' },
+            { externalId: 'igdb-2', title: 'The Witcher 2', cover: 'https://example.com/witcher2.jpg' },
+        ]);
+    });
+
     beforeAll(async () => {
-        // Optional: Clear or set up test database before all tests
-        // For now, we'll assume a clean state or handle cleanup in afterEach
+        // No specific setup needed for database, as search tests mock API calls
     });
 
     afterEach(async () => {
         // Clean up test data after each test
-        await pool.query('DELETE FROM games WHERE external_id IN ($1, $2, $3)', ['test-game-123', 'test-game-456', 'updated-test-game-123']);
+        await pool.query('DELETE FROM games WHERE external_id IN ($1, $2, $3, $4)', ['test-game-123', 'test-game-456', 'updated-test-game-123', 'test-game-789']);
     });
 
     afterAll(async () => {
