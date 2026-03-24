@@ -9,7 +9,8 @@
     "lint": "eslint",
     "ai": "tsx scripts/gemini.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "aider": "aider --model gemini/gemini-2.5-flash --read PROJECT_FOUNDATION.md"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
