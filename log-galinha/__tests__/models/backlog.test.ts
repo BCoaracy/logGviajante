@@ -1,76 +1,118 @@
-import { createBacklogItem } from '../../src/models/backlog';
-import { pool } from '../../src/lib/db';
-import { BacklogItem, BacklogStatus } from '../../src/types/backlog';
+import db from '../../src/lib/db';
+import { BacklogModel, MediaType, MediaStatus } from '../../src/models/backlog';
 
-// Mock the database pool
+// Mock the db query pool
 jest.mock('../../src/lib/db', () => ({
-    pool: {
-        query: jest.fn(),
-    },
+  query: jest.fn(),
 }));
 
-const mockPoolQuery = pool.query as jest.Mock;
+describe('Backlog Model (CRUD)', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-describe('Backlog Model', () => {
-    beforeEach(() => {
-        mockPoolQuery.mockClear();
+  describe('addItem', () => {
+    it('should add a new item to the user backlog', async () => {
+      const mockItem = {
+        id: 1,
+        user_id: 10,
+        media_id: 100,
+        media_type: 'movie' as MediaType,
+        status: 'Na Fila' as MediaStatus
+      };
+
+      (db.query as jest.Mock).mockResolvedValueOnce({ rows: [mockItem] });
+
+      const result = await BacklogModel.addItem({
+        user_id: 10,
+        media_id: 100,
+        media_type: 'movie',
+        status: 'Na Fila'
+      });
+
+      expect(db.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO backlog_items'),
+        [10, 100, 'movie', 'Na Fila']
+      );
+      expect(result).toEqual(mockItem);
     });
 
-    // Test case 1: Successfully create a new backlog item
-    it('should successfully create a new backlog item', async () => {
-        const userId = 1;
-        const mediaId = 101;
-        const status: BacklogStatus = 'WANT_TO_PLAY';
-        const mockCreatedBacklogItem: BacklogItem = {
-            id: 1,
-            userId,
-            mediaId,
-            status,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        };
-
-        mockPoolQuery.mockResolvedValueOnce({
-            rows: [mockCreatedBacklogItem],
-        });
-
-        const backlogItem = await createBacklogItem(userId, mediaId, status);
-
-        expect(backlogItem).toEqual(mockCreatedBacklogItem);
-        expect(mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining('INSERT INTO user_backlogs'),
-            [userId, mediaId, status]
-        );
+    it('should throw an error for invalid status', async () => {
+      await expect(BacklogModel.addItem({
+        user_id: 10,
+        media_id: 100,
+        media_type: 'movie',
+        status: 'InvalidStatus' as any
+      })).rejects.toThrow('Invalid status allowed. Must be "Na Fila", "Em Andamento", or "Finalizado".');
     });
 
-    // Test case 2: Prevent creating a duplicate backlog item
-    it('should throw an error if a backlog item already exists for the user and media', async () => {
-        const userId = 1;
-        const mediaId = 101;
-        const status: BacklogStatus = 'WANT_TO_PLAY';
+    it('should throw an error for invalid media type', async () => {
+      await expect(BacklogModel.addItem({
+        user_id: 10,
+        media_id: 100,
+        media_type: 'invalidType' as any,
+        status: 'Na Fila'
+      })).rejects.toThrow('Invalid media_type allowed. Must be "movie", "series", "book", or "game".');
+    });
+  });
 
-        mockPoolQuery.mockResolvedValueOnce({
-            rows: [],
-        });
+  describe('getByUserId', () => {
+    it('should retrieve all items for a specific user backlog', async () => {
+      const mockItems = [
+        { id: 1, user_id: 10, media_id: 100, media_type: 'movie', status: 'Na Fila' },
+        { id: 2, user_id: 10, media_id: 201, media_type: 'book', status: 'Em Andamento' }
+      ];
 
-        await expect(createBacklogItem(userId, mediaId, status)).rejects.toThrow(
-            'Backlog item already exists for this user and media.'
-        );
-        expect(mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining('INSERT INTO user_backlogs'),
-            [userId, mediaId, status]
-        );
+      (db.query as jest.Mock).mockResolvedValueOnce({ rows: mockItems });
+
+      const result = await BacklogModel.getByUserId(10);
+
+      expect(db.query).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT * FROM backlog_items WHERE user_id = $1'),
+        [10]
+      );
+      expect(result).toEqual(mockItems);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should update the status of an existing backlog item', async () => {
+      const updatedItem = {
+        id: 1,
+        user_id: 10,
+        media_id: 100,
+        media_type: 'movie',
+        status: 'Finalizado' as MediaStatus
+      };
+
+      (db.query as jest.Mock).mockResolvedValueOnce({ rows: [updatedItem] });
+
+      const result = await BacklogModel.updateStatus(1, 'Finalizado');
+
+      expect(db.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE backlog_items'),
+        ['Finalizado', 1]
+      );
+      expect(result).toEqual(updatedItem);
     });
 
-    // Test case 3: Handle invalid status (runtime check)
-    it('should throw an error for an invalid backlog status', async () => {
-        const userId = 1;
-        const mediaId = 101;
-        const invalidStatus = 'INVALID_STATUS' as BacklogStatus;
-
-        await expect(createBacklogItem(userId, mediaId, invalidStatus)).rejects.toThrow(
-            'Invalid backlog status: INVALID_STATUS'
-        );
-        expect(mockPoolQuery).not.toHaveBeenCalled();
+    it('should throw an error if updating to an invalid status', async () => {
+      await expect(BacklogModel.updateStatus(1, 'InvalidStatus' as any))
+        .rejects.toThrow('Invalid status allowed. Must be "Na Fila", "Em Andamento", or "Finalizado".');
     });
+  });
+
+  describe('removeItem', () => {
+    it('should correctly delete an item from the backlog', async () => {
+      (db.query as jest.Mock).mockResolvedValueOnce({ rowCount: 1 });
+
+      const result = await BacklogModel.removeItem(1);
+
+      expect(db.query).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM backlog_items WHERE id = $1'),
+        [1]
+      );
+      expect(result).toBe(true);
+    });
+  });
 });
