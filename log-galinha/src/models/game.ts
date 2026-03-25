@@ -111,7 +111,7 @@ export async function searchGamesByTitle(title: string): Promise<Omit<Game, 'id'
  * @param id - The internal database ID of the game.
  * @returns The game object if found, otherwise null.
  */
-async function getGameById(id: number): Promise<Game | null> {
+export async function getGameById(id: number): Promise<Game | null> {
     const query = 'SELECT id, external_id AS "externalId", title, cover FROM games WHERE id = $1;';
     const { rows } = await pool.query<Game>(query, [id]);
     return rows.length ? rows[0] : null;

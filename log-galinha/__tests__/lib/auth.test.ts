@@ -46,7 +46,7 @@ describe('Auth Utilities', () => {
 
         beforeEach(() => {
             // Clear mock calls for NextResponse before each test to ensure isolation
-            (NextResponse as jest.Mock).mockClear();
+            (NextResponse as unknown as jest.Mock).mockClear();
         });
 
         it('should return null for a request with a valid Bearer token', () => {
@@ -60,7 +60,7 @@ describe('Auth Utilities', () => {
             const result = authenticateRequest(request);
             expect(result).toBeDefined();
             expect(result!.status).toBe(401);
-            expect((NextResponse as jest.Mock)).toHaveBeenCalledWith(
+            expect((NextResponse as unknown as jest.Mock)).toHaveBeenCalledWith(
                 'Unauthorized: Missing or invalid Authorization header',
                 { status: 401 }
             );
@@ -71,7 +71,7 @@ describe('Auth Utilities', () => {
             const result = authenticateRequest(request);
             expect(result).toBeDefined();
             expect(result!.status).toBe(401);
-            expect((NextResponse as jest.Mock)).toHaveBeenCalledWith(
+            expect((NextResponse as unknown as jest.Mock)).toHaveBeenCalledWith(
                 'Unauthorized: Missing or invalid Authorization header',
                 { status: 401 }
             );
@@ -82,7 +82,7 @@ describe('Auth Utilities', () => {
             const result = authenticateRequest(request);
             expect(result).toBeDefined();
             expect(result!.status).toBe(401);
-            expect((NextResponse as jest.Mock)).toHaveBeenCalledWith(
+            expect((NextResponse as unknown as jest.Mock)).toHaveBeenCalledWith(
                 'Unauthorized: Invalid token',
                 { status: 401 }
             );
@@ -93,7 +93,7 @@ describe('Auth Utilities', () => {
             const result = authenticateRequest(request);
             expect(result).toBeDefined();
             expect(result!.status).toBe(401);
-            expect((NextResponse as jest.Mock)).toHaveBeenCalledWith(
+            expect((NextResponse as unknown as jest.Mock)).toHaveBeenCalledWith(
                 'Unauthorized: Invalid token',
                 { status: 401 }
             );

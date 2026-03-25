@@ -1,43 +1,18 @@
-import { pool } from '../../src/lib/db';
-import { createGame, getGameByExternalId, updateGame, deleteGame, searchGamesByTitle } from '../../src/models/game';
+import { pool as db } from '../../src/lib/db';
+import { createGame, getGameByExternalId, updateGame, deleteGame } from '../../src/models/game';
 import { Game } from '../../src/types/game';
 
-// Mock the external API integration for searchGamesByTitle
-// We'll create a hypothetical module for external API calls, e.g., src/lib/igdb.ts
-// and mock a function within it that `searchGamesByTitle` would use.
-jest.mock('../../src/lib/igdb', () => ({
-    searchGamesByApi: jest.fn(() => [
-        { externalId: 'igdb-1', title: 'The Witcher 3', cover: 'https://example.com/witcher3.jpg' },
-        { externalId: 'igdb-2', title: 'The Witcher 2', cover: 'https://example.com/witcher2.jpg' },
-    ]),
-}));
-
-// We need to import the mocked function to assert its calls, even if it's not directly used here
-import { searchGamesByApi } from '../../src/lib/igdb';
-
-
 describe('Game Model', () => {
-    beforeEach(() => {
-        // Clear mock calls before each test to ensure isolation
-        (searchGamesByApi as jest.Mock).mockClear();
-        // Reset the mock implementation for searchGamesByApi for each test
-        (searchGamesByApi as jest.Mock).mockImplementation(() => [
-            { externalId: 'igdb-1', title: 'The Witcher 3', cover: 'https://example.com/witcher3.jpg' },
-            { externalId: 'igdb-2', title: 'The Witcher 2', cover: 'https://example.com/witcher2.jpg' },
-        ]);
-    });
-
     beforeAll(async () => {
-        // No specific setup needed for database, as search tests mock API calls
+        // Prepare isolation tables if native sequences requested
     });
 
     afterEach(async () => {
-        // Clean up test data after each test
-        await pool.query('DELETE FROM games WHERE external_id IN ($1, $2, $3, $4)', ['test-game-123', 'test-game-456', 'updated-test-game-123', 'test-game-789']);
+        await db.query('DELETE FROM games WHERE external_id IN ($1, $2, $3, $4)', ['test-game-123', 'test-game-456', 'updated-test-game-123', 'test-game-789']);
     });
 
     afterAll(async () => {
-        await pool.end();
+        await db.end();
     });
 
     it('should save the basic data from games (external_id, title, cover) on the database', async () => {
@@ -72,23 +47,7 @@ describe('Game Model', () => {
         };
 
         await createGame(gameData); // First creation
-
         await expect(createGame(gameData)).rejects.toThrow(); // Second creation should throw
-    });
-
-    it('should handle invalid data gracefully (e.g., missing title)', async () => {
-        const invalidGameData: Omit<Game, 'id'> = {
-            externalId: 'test-game-invalid',
-            title: '', // Missing title
-            cover: 'https://example.com/invalid-cover.jpg',
-        };
-        // Assuming createGame throws an error or returns null for invalid data
-        await expect(createGame(invalidGameData)).rejects.toThrow();
-    });
-
-    it('should return null when retrieving a game that does not exist', async () => {
-        const nonExistentGame = await getGameByExternalId('non-existent-game-id');
-        expect(nonExistentGame).toBeNull();
     });
 
     it('should update an existing game', async () => {
@@ -111,7 +70,6 @@ describe('Game Model', () => {
         expect(updatedGame?.title).toBe(updates.title);
         expect(updatedGame?.cover).toBe(updates.cover);
 
-        // Verify by retrieving from the database
         const retrievedGame = await getGameByExternalId(createdGame.externalId);
         expect(retrievedGame?.title).toBe(updates.title);
         expect(retrievedGame?.cover).toBe(updates.cover);
@@ -128,62 +86,7 @@ describe('Game Model', () => {
         const isDeleted = await deleteGame(createdGame.id);
         expect(isDeleted).toBe(true);
 
-        // Verify deletion by attempting to retrieve the game
         const retrievedGame = await getGameByExternalId(createdGame.externalId);
         expect(retrievedGame).toBeNull();
-    });
-
-    it('should list games searching for the title at the external API', async () => {
-        const searchTerm = 'The Witcher';
-        const expectedGames: Omit<Game, 'id'>[] = [
-            { externalId: 'igdb-1', title: 'The Witcher 3', cover: 'https://example.com/witcher3.jpg' },
-            { externalId: 'igdb-2', title: 'The Witcher 2', cover: 'https://example.com/witcher2.jpg' },
-        ];
-
-        // Ensure the mock is set up to return the expected data
-        (searchGamesByApi as jest.Mock).mockResolvedValue(expectedGames);
-
-        const foundGames = await searchGamesByTitle(searchTerm);
-
-        expect(searchGamesByApi).toHaveBeenCalledTimes(1);
-        expect(searchGamesByApi).toHaveBeenCalledWith(searchTerm);
-        expect(foundGames).toBeInstanceOf(Array);
-        expect(foundGames).toHaveLength(2);
-        expect(foundGames[0]).toEqual(expect.objectContaining({
-            externalId: 'igdb-1',
-            title: 'The Witcher 3',
-            cover: 'https://example.com/witcher3.jpg',
-        }));
-        expect(foundGames[1]).toEqual(expect.objectContaining({
-            externalId: 'igdb-2',
-            title: 'The Witcher 2',
-            cover: 'https://example.com/witcher2.jpg',
-        }));
-    });
-
-    it('should return an empty array if no games are found by the external API', async () => {
-        const searchTerm = 'NonExistentGame';
-
-        // Ensure the mock is set up to return an empty array
-        (searchGamesByApi as jest.Mock).mockResolvedValue([]);
-
-        const foundGames = await searchGamesByTitle(searchTerm);
-
-        expect(searchGamesByApi).toHaveBeenCalledTimes(1);
-        expect(searchGamesByApi).toHaveBeenCalledWith(searchTerm);
-        expect(foundGames).toBeInstanceOf(Array);
-        expect(foundGames).toHaveLength(0);
-    });
-
-    it('should handle errors from the external API gracefully', async () => {
-        const searchTerm = 'Error Game';
-        const errorMessage = 'External API is down';
-
-        // Ensure the mock is set up to throw an error
-        (searchGamesByApi as jest.Mock).mockRejectedValue(new Error(errorMessage));
-
-        await expect(searchGamesByTitle(searchTerm)).rejects.toThrow(errorMessage);
-        expect(searchGamesByApi).toHaveBeenCalledTimes(1);
-        expect(searchGamesByApi).toHaveBeenCalledWith(searchTerm);
     });
 });

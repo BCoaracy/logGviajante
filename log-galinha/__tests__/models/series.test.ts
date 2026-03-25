@@ -1,4 +1,4 @@
-import db from '../../src/lib/db';
+import { pool as db } from '../../src/lib/db';
 import { SeriesModel } from '../../src/models/series';
 
 // Mock the db query pool

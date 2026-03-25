@@ -1,4 +1,4 @@
-import db from '../lib/db';
+import { pool as db } from '../lib/db';
 
 export interface Review {
   id: number;

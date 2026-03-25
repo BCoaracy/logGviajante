@@ -3,86 +3,54 @@ import { User } from '../types/user';
 
 export async function createUser(user: Omit<User, 'id'>): Promise<User> {
     const query = `
-        INSERT INTO users (name, email, nickname, password)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, name, email, nickname, password;
+        INSERT INTO users (keycloak_id, name, email, nickname, status)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, keycloak_id, name, email, nickname, status;
     `;
-    const values = [user.name, user.email, user.nickname, user.password];
+    const values = [user.keycloak_id, user.name, user.email, user.nickname, user.status || 'active'];
     const { rows } = await pool.query<User>(query, values);
     return rows[0];
 }
 
 export async function getUserById(id: number): Promise<User | null> {
-    const query = 'SELECT id, name, email, nickname, password FROM users WHERE id = $1;';
+    const query = 'SELECT id, keycloak_id, name, email, nickname, status FROM users WHERE id = $1;';
     const { rows } = await pool.query<User>(query, [id]);
     return rows.length ? rows[0] : null;
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
-    const query = 'SELECT id, name, email, nickname, password FROM users WHERE email = $1;';
+    const query = 'SELECT id, keycloak_id, name, email, nickname, status FROM users WHERE email = $1;';
     const { rows } = await pool.query<User>(query, [email]);
     return rows.length ? rows[0] : null;
 }
 
-export async function updateUser(id: number, updates: Partial<Omit<User, 'id' | 'email'>>): Promise<User | null> {
-    const fields: string[] = [];
-    const values: (string | number)[] = [];
-    let paramIndex = 1;
-
-    for (const key in updates) {
-        if (Object.prototype.hasOwnProperty.call(updates, key)) {
-            // Do not allow updating email or id directly via this method
-            if (key !== 'email' && key !== 'id') {
-                fields.push(`${key} = $${paramIndex++}`);
-                values.push((updates as any)[key]);
-            }
-        }
-    }
-
-    if (fields.length === 0) {
-        // No fields to update, just return the existing user
-        return getUserById(id);
-    }
-
-    values.push(id); // The last parameter is the ID for the WHERE clause
-    const query = `
-        UPDATE users
-        SET ${fields.join(', ')}
-        WHERE id = $${paramIndex}
-        RETURNING id, name, email, nickname, password;
-    `;
-    const { rows } = await pool.query<User>(query, values);
+export async function getUserByKeycloakId(keycloakId: string): Promise<User | null> {
+    const query = 'SELECT id, keycloak_id, name, email, nickname, status FROM users WHERE keycloak_id = $1;';
+    const { rows } = await pool.query<User>(query, [keycloakId]);
     return rows.length ? rows[0] : null;
 }
 
-export async function deleteUser(id: number): Promise<boolean> {
-    const query = 'DELETE FROM users WHERE id = $1 RETURNING id;';
-    const { rows } = await pool.query(query, [id]);
+export async function inactivateUser(keycloakId: string): Promise<User | null> {
+    const query = `
+        UPDATE users
+        SET status = 'inactive'
+        WHERE keycloak_id = $1
+        RETURNING id, keycloak_id, name, email, nickname, status;
+    `;
+    const { rows } = await pool.query<User>(query, [keycloakId]);
+    return rows.length ? rows[0] : null;
+}
+
+export async function deleteUser(keycloakId: string): Promise<boolean> {
+    // Delete by Keycloak ID directly to sync Identity removal
+    const query = 'DELETE FROM users WHERE keycloak_id = $1 RETURNING id;';
+    const { rows } = await pool.query(query, [keycloakId]);
     return rows.length > 0;
 }
 
-export async function loginUser(email: string, password: string): Promise<string | null> {
-    const user = await getUserByEmail(email);
-
-    if (!user) {
-        return null; // User not found
-    }
-
-    // In a real application, you would compare hashed passwords (e.g., using bcrypt)
-    // For now, a direct comparison is used for simplicity.
-    if (user.password !== password) {
-        return null; // Incorrect password
-    }
-
-    // In a real application, a JWT (JSON Web Token) would be generated here.
-    // For demonstration, a simple token string is returned.
-    const token = `dummy-jwt-token-for-user-${user.id}`;
-    return token;
-}
-
-export async function searchUsers(searchTerm: string): Promise<Omit<User, 'password'>[]> {
+export async function searchUsers(searchTerm: string): Promise<User[]> {
     const query = `
-        SELECT id, name, email, nickname
+        SELECT id, keycloak_id, name, email, nickname, status
         FROM users
         WHERE
             name ILIKE $1 OR
@@ -90,15 +58,12 @@ export async function searchUsers(searchTerm: string): Promise<Omit<User, 'passw
             nickname ILIKE $1;
     `;
     const values = [`%${searchTerm}%`];
-    const { rows } = await pool.query<Omit<User, 'password'>>(query, values);
+    const { rows } = await pool.query<User>(query, values);
     return rows;
 }
 
 export async function followUser(followerId: number, followingId: number): Promise<boolean> {
-    if (followerId === followingId) {
-        throw new Error("A user cannot follow themselves.");
-    }
-
+    if (followerId === followingId) throw new Error("A user cannot follow themselves.");
     const query = `
         INSERT INTO user_follows (follower_id, following_id)
         VALUES ($1, $2)
@@ -119,24 +84,24 @@ export async function unfollowUser(followerId: number, followingId: number): Pro
     return rows.length > 0;
 }
 
-export async function getFollowing(userId: number): Promise<Omit<User, 'password'>[]> {
+export async function getFollowing(userId: number): Promise<User[]> {
     const query = `
-        SELECT u.id, u.name, u.email, u.nickname
+        SELECT u.id, u.keycloak_id, u.name, u.email, u.nickname, u.status
         FROM users u
         JOIN user_follows uf ON u.id = uf.following_id
         WHERE uf.follower_id = $1;
     `;
-    const { rows } = await pool.query<Omit<User, 'password'>>(query, [userId]);
+    const { rows } = await pool.query<User>(query, [userId]);
     return rows;
 }
 
-export async function getFollowers(userId: number): Promise<Omit<User, 'password'>[]> {
+export async function getFollowers(userId: number): Promise<User[]> {
     const query = `
-        SELECT u.id, u.name, u.email, u.nickname
+        SELECT u.id, u.keycloak_id, u.name, u.email, u.nickname, u.status
         FROM users u
         JOIN user_follows uf ON u.id = uf.follower_id
         WHERE uf.following_id = $1;
     `;
-    const { rows } = await pool.query<Omit<User, 'password'>>(query, [userId]);
+    const { rows } = await pool.query<User>(query, [userId]);
     return rows;
 }

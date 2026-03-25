@@ -1,4 +1,4 @@
-import db from '../../src/lib/db';
+import { pool as db } from '../../src/lib/db';
 import { BacklogModel, MediaType, MediaStatus } from '../../src/models/backlog';
 
 // Mock the db query pool

@@ -1,0 +1,122 @@
+/* Admin Dashboard Pure CSS */
+.admin-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: 'Inter', sans-serif;
+    color: #e5e5e5;
+}
+
+.admin-header {
+    border-bottom: 2px solid #555;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+}
+
+.admin-message {
+    padding: 1rem;
+    background: #0f172a;
+    border: 1px solid #3b82f6;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+    font-weight: 500;
+}
+
+.admin-panel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+}
+
+.admin-panel {
+    background: #1e1e1e;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+.admin-panel h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+    color: #fff;
+    border-bottom: 1px solid #333;
+    padding-bottom: 0.5rem;
+}
+
+.admin-form-group, .admin-provision-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin-input {
+    padding: 0.75rem;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+}
+
+.admin-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+/* Base button */
+.admin-btn {
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: #fff;
+}
+
+/* Modifier buttons */
+.admin-btn.blue { background: #3b82f6; }
+.admin-btn.blue:hover { background: #2563eb; }
+
+.admin-btn.green { background: #10b981; }
+.admin-btn.green:hover { background: #059669; }
+
+.admin-btn.orange { background: #f59e0b; }
+.admin-btn.orange:hover { background: #d97706; }
+
+.admin-btn.red { background: #ef4444; }
+.admin-btn.red:hover { background: #dc2626; }
+
+/* User List rendering */
+.admin-user-list {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin-user-card {
+    background: #2a2a2a;
+    padding: 1rem;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.user-details strong {
+    font-size: 1.1rem;
+    color: #fff;
+}
+
+.user-details small {
+    color: #aaa;
+}
+
+.user-details span.active { color: #10b981; }
+.user-details span.inactive { color: #ef4444; }
+
+.user-actions {
+    display: flex;
+    gap: 0.5rem;
+}

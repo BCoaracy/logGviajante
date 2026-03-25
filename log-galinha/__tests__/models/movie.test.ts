@@ -1,4 +1,4 @@
-import db from '../../src/lib/db';
+import { pool as db } from '../../src/lib/db';
 import { MovieModel } from '../../src/models/movie';
 
 // Mock the db query pool

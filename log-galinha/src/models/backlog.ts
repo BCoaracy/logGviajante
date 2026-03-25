@@ -1,4 +1,4 @@
-import db from '../lib/db';
+import { pool as db } from '../lib/db';
 
 export type MediaStatus = 'Na Fila' | 'Em Andamento' | 'Finalizado';
 export type MediaType = 'movie' | 'series' | 'book' | 'game';
